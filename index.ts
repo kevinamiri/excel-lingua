@@ -67,7 +67,6 @@ class XLSXManager {
 
     public async writeData(data: any[]): Promise<void> {
         try {
-
             const worksheet = XLSX.utils.json_to_sheet(data);
             const workbook = XLSX.utils.book_new();
 
@@ -126,10 +125,10 @@ const sendTranslationRequest = async (text: string) => {
 
     const response = await openai.createEdit({
         model: "text-davinci-edit-001",
-        input: text,
+        input: text.substring(0, 10),
         instruction: "Translate it into Swedish",
     });
-    console.log("Processing " + text.substring(0, 10))
+    console.log("Processing " + text.substring(0, 50) + "...")
     // const chat = await openai.createChatCompletion({
     //     model: "gpt-3.5-turbo",
     //     messages: [
@@ -150,13 +149,21 @@ const calculateTokens = (text: string) => {
 // Define AsyncFunction type for asyncFn parameter
 type AsyncFunction<T> = (item: T) => Promise<void>;
 
-export async function processBatches<T>(list: T[], batchSizeMax: number, asyncFn: AsyncFunction<T>): Promise<void> {
+export async function processBatches<T>(list: T[], batchSizeMax: number = 200, asyncFn: AsyncFunction<T>): Promise<void> {
     // Divide the list into smaller parts
     const batches: T[][] = [];
 
-    // If vectorizer API has a rate limit of batchSizeMax objects per minute
+    console.log("Total number of items: ", list.length)
+    console.log("Batch size: ", batchSizeMax)
+    console.log("Total number of batches: ", Math.ceil(list.length / batchSizeMax))
+    console.log("Remaining items: ", list.length % batchSizeMax)
+    console.log("Processing batches...", batches.length)
+
+
     for (let i = 0; i < list.length; i += batchSizeMax) {
         const batch = list.slice(i, i + batchSizeMax);
+        console.log("Processing batch: ", i)
+        console.log("Batch length: ", batch.length)
         batches.push(batch);
     }
 
@@ -164,8 +171,9 @@ export async function processBatches<T>(list: T[], batchSizeMax: number, asyncFn
     for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
         const batchNumber = i + 1;
+        console.log("list.length: ", list.length, "batch length", batch.length)
         console.log(`Processing batch of length ${batch.length}:`, batch[0], '-', batch[batch.length - 1]);
-        console.log(`Step ${batchNumber} :  ${batch.length} / ${list.length}  processed.`)
+        console.log(`Step ${batchNumber} :  ${batch.length * batchNumber} / ${list.length}  processed.`)
         // Run asyncFn for each item in the batch
         const promises = batch.map(item => asyncFn(item));
         // Wait for all promises in the batch to resolve
@@ -204,7 +212,7 @@ const handleTasks = async () => {
     // Split the data into batches of 60 using the processInBatches() function
     await processBatches(data, 100, async (row: any) => {
 
-        await retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
+        retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
             .then((translation: any) => {
                 row.target_language = translation.content;
                 row.total_tokens = translation.total_tokens;
