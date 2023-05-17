@@ -21,7 +21,7 @@ export function retryWithExponentialBackoff(
                 return await func(...args);
             } catch (e) {
                 // Retry on specific errors
-                if (e.response && e.response.status === 429) {
+                if (e.response && e.response.status === 429 || e.response.status === 500) {
                     // Increment retries
                     numRetries += 1;
                     //next retry in ${delay} seconds

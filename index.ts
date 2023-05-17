@@ -120,77 +120,97 @@ class XLSXManager {
 
 }
 
-
 const sendTranslationRequest = async (text: string) => {
+    try {
 
-    const response = await openai.createEdit({
-        model: "text-davinci-edit-001",
-        input: text.substring(0, 10),
-        instruction: "Translate it into Swedish",
-    });
-    console.log("Processing " + text.substring(0, 50) + "...")
-    // const chat = await openai.createChatCompletion({
-    //     model: "gpt-3.5-turbo",
-    //     messages: [
-    //         { role: "assistant", content: "Translate the following English text to French" },
-    //         { role: "user", content: text }],
-    // });
-    // console.log({ total_token: response.data.usage.total_tokens })
-    // console.log(response.data)
-    return { content: response.data.choices[0].text, total_tokens: response.data.usage.total_tokens }
-    // return chat.data.choices[0].message?.content;
+        // if text length is less than 2 characters, return the text
+        if (text.length < 2) {
+            return { content: text, total_tokens: 0 }
+        }
+
+
+        const chunk = text.substring(0, 10);
+
+
+        console.log("Processing " + chunk + "...")
+
+
+        const chat = await openai.createChatCompletion({
+            model: "gpt-3.5-turbo",
+            messages: [
+                { role: "assistant", content: "Translate the following English text to French" },
+                { role: "user", content: chunk }],
+
+        }).catch((error) => {
+            console.error("Error sending translation request: ", `message: ${error.response.statusText} and status code: ${error.response.status} and data: ${JSON.stringify(error.response.data)}`);
+            throw error;
+        });
+
+        return { content: chat.data.choices[0].message?.content, total_tokens: chat.data.usage.total_tokens }
+
+    } catch (error) {
+        console.error("Error sending translation request: ", `message: ${error.response.statusText} and status code: ${error.response.status} and data: ${JSON.stringify(error.response.data)}`);
+        throw error;
+    } finally {
+        console.log('Translation request operation completed.');
+    }
 };
+
 
 const calculateTokens = (text: string) => {
-    return encode(text).length;
+    try {
+        return encode(text).length;
+    } catch (error) {
+        console.error("Error calculating tokens: ", error);
+        throw error;
+    } finally {
+        console.log('Token calculation operation completed.');
+    }
 };
-
 
 // Define AsyncFunction type for asyncFn parameter
 type AsyncFunction<T> = (item: T) => Promise<void>;
 
 export async function processBatches<T>(list: T[], batchSizeMax: number = 200, asyncFn: AsyncFunction<T>): Promise<void> {
-    // Divide the list into smaller parts
-    const batches: T[][] = [];
+    try {
+        // Divide the list into smaller parts
+        const batches: T[][] = [];
 
-    console.log("Total number of items: ", list.length)
-    console.log("Batch size: ", batchSizeMax)
-    console.log("Total number of batches: ", Math.ceil(list.length / batchSizeMax))
-    console.log("Remaining items: ", list.length % batchSizeMax)
-    console.log("Processing batches...", batches.length)
-
-
-    for (let i = 0; i < list.length; i += batchSizeMax) {
-        const batch = list.slice(i, i + batchSizeMax);
-        console.log("Processing batch: ", i)
-        console.log("Batch length: ", batch.length)
-        batches.push(batch);
-    }
-
-    // Process each batch sequentially with setTimeout() to avoid rate limiting
-    for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        const batchNumber = i + 1;
-        console.log("list.length: ", list.length, "batch length", batch.length)
-        console.log(`Processing batch of length ${batch.length}:`, batch[0], '-', batch[batch.length - 1]);
-        console.log(`Step ${batchNumber} :  ${batch.length * batchNumber} / ${list.length}  processed.`)
-        // Run asyncFn for each item in the batch
-        const promises = batch.map(item => asyncFn(item));
-        // Wait for all promises in the batch to resolve
-        await Promise.all(promises);
-        // Wait for a minute before processing the next batch
-        await new Promise(resolve => setTimeout(resolve, 60000));
-        console.log('Waiting for 1 minute before processing the next batch...');
-        // when all batches are processed, log the final message
-        if (i === batches.length - 1) {
-            console.log('All batches performed successfully.');
+        for (let i = 0; i < list.length; i += batchSizeMax) {
+            const batch = list.slice(i, i + batchSizeMax);
+            console.log("Processing batch: ", i)
+            console.log("Batch length: ", batch.length)
+            batches.push(batch);
         }
+
+        // Process each batch sequentially with setTimeout() to avoid rate limiting
+        for (let i = 0; i < batches.length; i++) {
+            const batch = batches[i];
+            const batchNumber = i + 1;
+            console.log("list.length: ", list.length, "batch length", batch.length)
+            console.log(`Processing batch of length ${batch.length}:`, batch[0], '-', batch[batch.length - 1]);
+            console.log(`Step ${batchNumber} :  ${batch.length * batchNumber} / ${list.length}  processed.`)
+            // Run asyncFn for each item in the batch
+            const promises = batch.map(item => asyncFn(item));
+            // Wait for all promises in the batch to resolve
+            await Promise.all(promises);
+            // Wait for a minute before processing the next batch
+            await new Promise(resolve => setTimeout(resolve, 60000));
+            console.log('Waiting for 1 minute before processing the next batch...');
+            // when all batches are processed, log the final message
+            if (i === batches.length - 1) {
+                console.log('All batches performed successfully.');
+            }
+        }
+
+        return Promise.resolve();
+    } catch (error) {
+        console.error("Error processing batches: ", error);
+        throw error;
+    } finally {
+        console.log('Batch processing operation completed.');
     }
-
-    return Promise.resolve();
 }
-
-
 
 /* 
 1. First, split the list into smaller sections, each with the desired batch size.
@@ -199,31 +219,36 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
 4. Lastly, wait for all promises in the batch to be completed. You can do this with Promise.all(promises). */
 
 const handleTasks = async () => {
-    const xlsxManager = new XLSXManager('./testing.xlsx');
-    let data = await xlsxManager.readData();
+    try {
+        const xlsxManager = new XLSXManager('./testing.xlsx');
+        let data = await xlsxManager.readData();
 
-    const keys = Object.keys(data[0]);
-    const secondColumnExists = keys.length >= 2;
+        const keys = Object.keys(data[0]);
+        const secondColumnExists = keys.length >= 2;
 
-    if (!secondColumnExists) {
-        data = data.map((row: any) => ({ ...row, target_language: null }));
+        if (!secondColumnExists) {
+            data = data.map((row: any) => ({ ...row, target_language: null }));
+        }
+
+        // Split the data into batches of 60 using the processInBatches() function
+        await processBatches(data, 100, async (row: any) => {
+
+            retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
+                .then((translation: any) => {
+                    row.target_language = translation.content;
+                    row.total_tokens = translation.total_tokens;
+                    // Update the row in the Excel file
+                    return xlsxManager.appendDataToXLSX(row);
+                })
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+        });
+    } catch (error) {
+        console.error("Error handling tasks: ", error);
+        throw error;
+    } finally {
+        console.log('Task handling operation completed.');
     }
-
-    // Split the data into batches of 60 using the processInBatches() function
-    await processBatches(data, 100, async (row: any) => {
-
-        retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
-            .then((translation: any) => {
-                row.target_language = translation.content;
-                row.total_tokens = translation.total_tokens;
-                // Update the row in the Excel file
-                return xlsxManager.appendDataToXLSX(row);
-            })
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-    });
-
 };
 
 handleTasks().catch(error => console.error(error));
-
