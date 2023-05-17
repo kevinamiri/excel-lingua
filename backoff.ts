@@ -24,6 +24,8 @@ export function retryWithExponentialBackoff(
                 if (e.response && e.response.status === 429) {
                     // Increment retries
                     numRetries += 1;
+                    //next retry in ${delay} seconds
+                    console.log(`Retrying in ${delay} seconds... Retry attempt ${numRetries} of ${maxRetries}`)
 
                     // Check if max retries has been reached
                     if (numRetries > maxRetries) {
@@ -37,7 +39,7 @@ export function retryWithExponentialBackoff(
                     await new Promise(resolve => setTimeout(resolve, delay * 1000));
                 } else {
                     // Raise exceptions for any errors not specified
-                    throw e;
+                    throw e.response.data;
                 }
             }
         }
