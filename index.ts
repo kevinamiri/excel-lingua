@@ -189,7 +189,6 @@ const calculateTokens = (text: string) => {
 const handleTasks = async () => {
     const xlsxManager = new XLSXManager('./test.xlsx');
     let data = await xlsxManager.readData();
-    let totalTokens = 0;
 
     const keys = Object.keys(data[0]);
     const secondColumnExists = keys.length >= 2;
@@ -198,25 +197,53 @@ const handleTasks = async () => {
         data = data.map((row: any) => ({ ...row, target_language: null }));
     }
 
-    for (let i = 0; i < data.length; i++) {
-        const sourceTokens = calculateTokens(data[i].source_language);
+    // Split the data into batches of 10-20 rows
 
-        if (totalTokens + sourceTokens > 20000) {
-            break;
-        }
+    type T = any; // Replace 'any' with the actual type of the elements in your 'data' array
 
-        totalTokens += sourceTokens;
+    const batchSize: number = 10; // Define your batchSize as needed
+    const batches: T[][] = [];
 
-        const translation = await retryWithExponentialBackoff(sendTranslationRequest, 1, 2, true, 10, ['RateLimitError'])(data[i].source_language);
-        data[i].target_language = translation;
-
-        const targetTokens = calculateTokens(translation);
-        totalTokens += targetTokens;
-
-        data[i].total_tokens = sourceTokens + targetTokens;
+    while (data.length) {
+        batches.push(data.splice(0, batchSize));
     }
 
-    await xlsxManager.writeData(data);
+
+    while (data.length) {
+        batches.push(data.splice(0, batchSize));
+    }
+
+    // Process each batch
+    for (const batch of batches) {
+        let totalTokens = 0;
+
+        // Process each row in the batch
+        for (let i = 0; i < batch.length; i++) {
+            const sourceTokens = calculateTokens(batch[i].source_language);
+
+            if (totalTokens + sourceTokens > 20000) {
+                // If the token limit is reached, wait for a minute and reset the total token count
+                await new Promise(resolve => setTimeout(resolve, 60000));
+                totalTokens = 0;
+            }
+
+            totalTokens += sourceTokens;
+
+            const translation = await retryWithExponentialBackoff(sendTranslationRequest, 1, 2, true, 10, ['RateLimitError'])(batch[i].source_language);
+            batch[i].target_language = translation;
+
+            const targetTokens = calculateTokens(translation);
+            totalTokens += targetTokens;
+
+            batch[i].total_tokens = sourceTokens + targetTokens;
+        }
+
+        // Write the updated batch back to the Excel file
+        await xlsxManager.writeData(batch);
+
+        // Wait for a minute before processing the next batch
+        await new Promise(resolve => setTimeout(resolve, 60000));
+    }
 };
 
 handleTasks().catch(console.error);

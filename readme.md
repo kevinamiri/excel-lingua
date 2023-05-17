@@ -33,10 +33,17 @@ Replace `your_openai_api_key` with your actual OpenAI API key.
 To run the application, use the following command:
 
 ```bash
-node index.js
+npx ts-node index.ts
 ```
 
-Replace `index.js` with the name of your TypeScript file if it's different.
+Replace `index.ts` with the name of your TypeScript file if it's different.
+
+
+## TO-DO List
+
+- convert Write operation into append operation on every change in file
+
+
 
 ## Contributing to the Project
 
