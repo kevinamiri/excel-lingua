@@ -93,10 +93,14 @@ class XLSXManager {
             // Convert JSON to worksheet
             let newWorksheet = XLSX.utils.json_to_sheet(data);
 
-            // Delete old worksheet
+            // Remove old worksheet
             delete workbook.Sheets[sheetName];
+            const sheetIndex = workbook.SheetNames.indexOf(sheetName);
+            if (sheetIndex > -1) {
+                workbook.SheetNames.splice(sheetIndex, 1);
+            }
 
-            // Append new worksheet
+            // Replace old worksheet with new worksheet
             XLSX.utils.book_append_sheet(workbook, newWorksheet, sheetName);
 
             // Write workbook to file
@@ -107,6 +111,8 @@ class XLSXManager {
             console.error("Error appending data: ", error);
         }
     }
+
+
 
 
 }
@@ -127,7 +133,7 @@ const sendTranslationRequest = async (text: string) => {
     //         { role: "user", content: text }],
     // });
     // console.log({ total_token: response.data.usage.total_tokens })
-    // console.log(response.data)
+    console.log(response.data)
     return { content: response.data.choices[0].text, total_tokens: response.data.usage.total_tokens }
     // return chat.data.choices[0].message?.content;
 };
@@ -149,7 +155,7 @@ const handleTasks = async () => {
 
     // Split the data into batches of 10-20 rows
     type T = any; // Replace 'any' with the actual type of the elements in your 'data' array
-    const batchSize: number = 20; // Define your batchSize as needed
+    const batchSize: number = 200; // Define your batchSize as needed
     const batches: T[][] = [];
 
     while (data.length) {
@@ -159,8 +165,9 @@ const handleTasks = async () => {
     // Process each batch
     for (const batch of batches) {
         // Prepare all the promises for the batch
-        const promises = batch.map((row: any) => {
-            return retryWithExponentialBackoff(sendTranslationRequest, 1, 2, true, 10, ['RateLimitError'])(row.source_language)
+        const promises = batch.map((row: any, inx) => {
+            console.log("Processing row " + inx + " of " + batch.length)
+            return retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
                 .then((translation: any) => {
                     row.target_language = translation.content;
                     row.total_tokens = translation.total_tokens;
@@ -181,5 +188,5 @@ const handleTasks = async () => {
     }
 };
 
-handleTasks()
+handleTasks().then(() => console.log('All tasks completed successfully!')).catch(error => console.error(error));
 

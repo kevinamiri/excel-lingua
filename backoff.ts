@@ -1,4 +1,3 @@
-
 import { OpenAIApi } from 'openai';
 
 type AsyncFunction = (...args: any[]) => Promise<any>;
@@ -9,7 +8,6 @@ export function retryWithExponentialBackoff(
     exponentialBase: number = 2,
     jitter: boolean = true,
     maxRetries: number = 10,
-    errors: any[] = ['RateLimitError'],
 ): AsyncFunction {
     // Retry a function with exponential backoff
     return async function wrapper(...args: any[]) {
@@ -23,7 +21,7 @@ export function retryWithExponentialBackoff(
                 return await func(...args);
             } catch (e) {
                 // Retry on specific errors
-                if (errors.includes(e.name)) {
+                if (e.response && e.response.status === 429) {
                     // Increment retries
                     numRetries += 1;
 
