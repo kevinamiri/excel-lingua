@@ -34,7 +34,23 @@ class XLSXManager {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
 
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
+            let jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+            // Check if the column labels are correct
+            const keys = Object.keys(jsonData[0]);
+            if (keys[0] !== 'source_language' || keys[1] !== 'target_language' || keys[2] !== 'total_tokens') {
+                // If not, set the column labels and write the data back to the Excel sheet
+                jsonData = jsonData.map((row, index) => {
+                    return {
+                        source_language: row[keys[0]],
+                        target_language: row[keys[1]],
+                        total_tokens: row[keys[2]]
+                    };
+                });
+
+                await this.writeData(jsonData);
+            }
+
             return jsonData;
         } catch (error) {
             console.error('Error reading the XLSX file:', error);
@@ -135,51 +151,32 @@ class XLSXManager {
 
 }
 
-// // Usage
-// (async () => {
-//     const xlsxManager = new XLSXManager('./test.xlsx');
-
-//     // Write data
-//     const data = [
-//         { source_language: 'All children, except one, grow up.', target_language: '所有的孩子，除了一个，都长大了', total_tokens: null },
-//         { source_language: 'They soon know that they will grow up, and the way Wendy knew was this.', target_language: '他们很快就知道他们会长大，而温迪知道的方式是这样的。', total_tokens: null },
-//         { source_language: 'You always know after you are two. Two is the beginning of the end.', target_language: '你在两岁后就会知道。两岁是结束的开始。', total_tokens: null }]
-//     await xlsxManager.writeData(data);
-
-//     // Append a row
-//     const newRow = { source_language: 'This was all that passed between them on the subject, but henceforth Wendy knew that she must grow up.', target_language: '这是他们之间关于这个话题的全部内容，但从此以后，温迪知道她必须长大。', total_tokens: null };
-//     await xlsxManager.appendRow(newRow);
-
-//     // Update the third column
-//     await xlsxManager.updateThirdColumn((row) => {
-//         // Update logic here. For example, return the total_tokens based on number of source_language tokens and target_language tokens
-//         return encode(row.source_language).length + encode(row.target_language).length
-//     });
-
-//     // Read data
-//     const readData = await xlsxManager.readData();
-//     console.log(readData);
-
-// })();
-
-/**
- 
-1. We first calculate the total tokens for the first 10 rows.
-2. We then adjust the number of rows based on the total tokens. If the total tokens exceed the maximum, we select a smaller number of rows. If the total tokens are less than the maximum, we select additional rows to get closer to the maximum.
-3. We send the API requests for the selected rows using `Promise.all` and the `retryWithExponentialBackoff` function.
-4. We wait for all the API requests to complete and then update the second and third columns with the translations and the total tokens, respectively.
-
- */
-
 
 const sendTranslationRequest = async (text: string) => {
-    const completion = await openai.createChatCompletion({
-        model: "gpt-3.5-turbo",
-        messages: [
-            { role: "assistant", content: "Translate the following English text to French" },
-            { role: "user", content: text }],
+    // const completion = await openai.createCompletion({
+    //     model: "gpt-3.5-turbo",
+    //     max_tokens: 700,
+    //     temperature: 0,
+    //     prompt: text,
+
+    // });
+
+    const response = await openai.createEdit({
+        model: "text-davinci-edit-001",
+        input: text,
+        temperature: 0.5,
+        instruction: "Translate it into Swedish",
     });
-    return completion.data.choices[0].message?.content;
+    console.log("Starting to process " + text.substring(0.10))
+    // const chat = await openai.createChatCompletion({
+    //     model: "gpt-3.5-turbo",
+    //     messages: [
+    //         { role: "assistant", content: "Translate the following English text to French" },
+    //         { role: "user", content: text }],
+    // });
+    console.log({ total_token: response.data.usage.total_tokens })
+    return response.data.choices[0].text
+    // return chat.data.choices[0].message?.content;
 };
 
 const calculateTokens = (text: string) => {
@@ -187,8 +184,9 @@ const calculateTokens = (text: string) => {
 };
 
 const handleTasks = async () => {
-    const xlsxManager = new XLSXManager('./test.xlsx');
+    const xlsxManager = new XLSXManager('./testing.xlsx');
     let data = await xlsxManager.readData();
+    // await xlsxManager.ensureColumns();
 
     const keys = Object.keys(data[0]);
     const secondColumnExists = keys.length >= 2;
@@ -201,7 +199,7 @@ const handleTasks = async () => {
 
     type T = any; // Replace 'any' with the actual type of the elements in your 'data' array
 
-    const batchSize: number = 10; // Define your batchSize as needed
+    const batchSize: number = 20; // Define your batchSize as needed
     const batches: T[][] = [];
 
     while (data.length) {
@@ -239,7 +237,7 @@ const handleTasks = async () => {
         }
 
         // Write the updated batch back to the Excel file
-        await xlsxManager.writeData(batch);
+        await xlsxManager.appendRow(batch);
 
         // Wait for a minute before processing the next batch
         await new Promise(resolve => setTimeout(resolve, 60000));
