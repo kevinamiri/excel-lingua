@@ -186,7 +186,6 @@ const calculateTokens = (text: string) => {
 const handleTasks = async () => {
     const xlsxManager = new XLSXManager('./testing.xlsx');
     let data = await xlsxManager.readData();
-    // await xlsxManager.ensureColumns();
 
     const keys = Object.keys(data[0]);
     const secondColumnExists = keys.length >= 2;
@@ -196,16 +195,9 @@ const handleTasks = async () => {
     }
 
     // Split the data into batches of 10-20 rows
-
     type T = any; // Replace 'any' with the actual type of the elements in your 'data' array
-
-    const batchSize: number = 20; // Define your batchSize as needed
+    const batchSize: number = 10; // Define your batchSize as needed
     const batches: T[][] = [];
-
-    while (data.length) {
-        batches.push(data.splice(0, batchSize));
-    }
-
 
     while (data.length) {
         batches.push(data.splice(0, batchSize));
@@ -234,14 +226,21 @@ const handleTasks = async () => {
             totalTokens += targetTokens;
 
             batch[i].total_tokens = sourceTokens + targetTokens;
+
+            // Update the row in the Excel file
+            await xlsxManager.appendRow(batch[i]);
         }
 
-        // Write the updated batch back to the Excel file
-        await xlsxManager.appendRow(batch);
+        // Update the second and third columns in the Excel file
+        await xlsxManager.updateSecondColumn((firstColumnValue: any) => firstColumnValue.target_language);
+        await xlsxManager.updateThirdColumn((row: any) => row.total_tokens);
 
         // Wait for a minute before processing the next batch
         await new Promise(resolve => setTimeout(resolve, 60000));
     }
 };
+
+handleTasks().catch(console.error);
+
 
 handleTasks().catch(console.error);
