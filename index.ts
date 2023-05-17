@@ -5,6 +5,11 @@ import {
 } from 'gpt-tokenizer'
 import { retryWithExponentialBackoff } from './backoff'
 
+/* Here is the explanation for the code above:
+1. First, we create an instance of the XLSXManager class, which we use to read and write data to the Excel sheet.
+2. Next, we call the readData() method to read the data from the Excel sheet. The method returns a promise, so we use await to wait for it to complete. We also wrap the code in a try-catch block to handle any errors.
+3. Inside the try block, we check if the data has the correct column labels. If not, we update the column labels and write the data back to the Excel sheet.
+4. Finally, we call the appendDataToXLSX() method to append the new data to the Excel sheet. */
 
 import { Configuration, OpenAIApi } from 'openai';
 import dotenv from 'dotenv';
@@ -81,7 +86,9 @@ class XLSXManager {
             // Read the existing workbook
             const buffer = fs.readFileSync(this.filePath);
             let workbook = XLSX.read(buffer, { type: 'buffer' });
-            const sheetName = workbook.SheetNames[0];
+            const sheetName = workbook.SheetNames[2];
+            // const sheetName = (parseInt(sheetName1) + 1).toString();
+
             let worksheet = workbook.Sheets[sheetName];
 
             // Convert worksheet to JSON
@@ -112,9 +119,6 @@ class XLSXManager {
         }
     }
 
-
-
-
 }
 
 
@@ -125,7 +129,7 @@ const sendTranslationRequest = async (text: string) => {
         input: text,
         instruction: "Translate it into Swedish",
     });
-    console.log("Starting to process " + text.substring(0.10))
+    console.log("Processing " + text.substring(0, 10))
     // const chat = await openai.createChatCompletion({
     //     model: "gpt-3.5-turbo",
     //     messages: [
@@ -133,7 +137,7 @@ const sendTranslationRequest = async (text: string) => {
     //         { role: "user", content: text }],
     // });
     // console.log({ total_token: response.data.usage.total_tokens })
-    console.log(response.data)
+    // console.log(response.data)
     return { content: response.data.choices[0].text, total_tokens: response.data.usage.total_tokens }
     // return chat.data.choices[0].message?.content;
 };
@@ -141,6 +145,50 @@ const sendTranslationRequest = async (text: string) => {
 const calculateTokens = (text: string) => {
     return encode(text).length;
 };
+
+
+// Define AsyncFunction type for asyncFn parameter
+type AsyncFunction<T> = (item: T) => Promise<void>;
+
+export async function processBatches<T>(list: T[], batchSizeMax: number, asyncFn: AsyncFunction<T>): Promise<void> {
+    // Divide the list into smaller parts
+    const batches: T[][] = [];
+
+    // If vectorizer API has a rate limit of batchSizeMax objects per minute
+    for (let i = 0; i < list.length; i += batchSizeMax) {
+        const batch = list.slice(i, i + batchSizeMax);
+        batches.push(batch);
+    }
+
+    // Process each batch sequentially with setTimeout() to avoid rate limiting
+    for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const batchNumber = i + 1;
+        console.log(`Processing batch of length ${batch.length}:`, batch[0], '-', batch[batch.length - 1]);
+        console.log(`Step ${batchNumber} :  ${batch.length} / ${list.length}  processed.`)
+        // Run asyncFn for each item in the batch
+        const promises = batch.map(item => asyncFn(item));
+        // Wait for all promises in the batch to resolve
+        await Promise.all(promises);
+        // Wait for a minute before processing the next batch
+        await new Promise(resolve => setTimeout(resolve, 60000));
+        console.log('Waiting for 1 minute before processing the next batch...');
+        // when all batches are processed, log the final message
+        if (i === batches.length - 1) {
+            console.log('All batches performed successfully.');
+        }
+    }
+
+    return Promise.resolve();
+}
+
+
+
+/* 
+1. First, split the list into smaller sections, each with the desired batch size.
+2. Next, process each batch one at a time using Promise.all().
+3. In the loop, run the asyncFn for every item in the batch. This is when the asynchronous function takes place.
+4. Lastly, wait for all promises in the batch to be completed. You can do this with Promise.all(promises). */
 
 const handleTasks = async () => {
     const xlsxManager = new XLSXManager('./testing.xlsx');
@@ -153,40 +201,21 @@ const handleTasks = async () => {
         data = data.map((row: any) => ({ ...row, target_language: null }));
     }
 
-    // Split the data into batches of 10-20 rows
-    type T = any; // Replace 'any' with the actual type of the elements in your 'data' array
-    const batchSize: number = 200; // Define your batchSize as needed
-    const batches: T[][] = [];
+    // Split the data into batches of 60 using the processInBatches() function
+    await processBatches(data, 100, async (row: any) => {
 
-    while (data.length) {
-        batches.push(data.splice(0, batchSize));
-    }
+        await retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
+            .then((translation: any) => {
+                row.target_language = translation.content;
+                row.total_tokens = translation.total_tokens;
+                // Update the row in the Excel file
+                return xlsxManager.appendDataToXLSX(row);
+            })
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Process each batch
-    for (const batch of batches) {
-        // Prepare all the promises for the batch
-        const promises = batch.map((row: any, inx) => {
-            console.log("Processing row " + inx + " of " + batch.length)
-            return retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
-                .then((translation: any) => {
-                    row.target_language = translation.content;
-                    row.total_tokens = translation.total_tokens;
-                    // Update the row in the Excel file
-                    return xlsxManager.appendDataToXLSX(row);
-                });
-        });
+    });
 
-        // Wait for all the promises to resolve
-        await Promise.all(promises);
-
-        // Update the second and third columns in the Excel file
-        // await xlsxManager.updateSecondColumn((firstColumnValue: any) => firstColumnValue.target_language);
-        // await xlsxManager.updateThirdColumn((row: any) => row.total_tokens);
-
-        // Wait for a minute before processing the next batch
-        await new Promise(resolve => setTimeout(resolve, 60000));
-    }
 };
 
-handleTasks().then(() => console.log('All tasks completed successfully!')).catch(error => console.error(error));
+handleTasks().catch(error => console.error(error));
 
