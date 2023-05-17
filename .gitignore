@@ -6,7 +6,6 @@ deploy.zip
 *.sqllite
 .env
 prisma/*.db
-*.json
 *.sh
 *.bash
 .env
