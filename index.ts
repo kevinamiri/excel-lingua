@@ -1,18 +1,9 @@
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
-import {
-    encode
-} from 'gpt-tokenizer'
 import { retryWithExponentialBackoff } from './backoff'
-
-/* Here is the explanation for the code above:
-1. First, we create an instance of the XLSXManager class, which we use to read and write data to the Excel sheet.
-2. Next, we call the readData() method to read the data from the Excel sheet. The method returns a promise, so we use await to wait for it to complete. We also wrap the code in a try-catch block to handle any errors.
-3. Inside the try block, we check if the data has the correct column labels. If not, we update the column labels and write the data back to the Excel sheet.
-4. Finally, we call the appendDataToXLSX() method to append the new data to the Excel sheet. */
-
 import { Configuration, OpenAIApi } from 'openai';
 import dotenv from 'dotenv';
+import { batchSize, messageExamples, modelSettings, xlsFilePath } from './settings';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -24,7 +15,7 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 
 
-class XLSXManager {
+export class XLSXManager {
     private filePath: string;
 
     constructor(filePath: string) {
@@ -32,6 +23,7 @@ class XLSXManager {
     }
 
     public async readData(): Promise<any> {
+        // Read the data from the Excel sheet.
         try {
             const buffer = fs.readFileSync(this.filePath);
             const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -80,16 +72,22 @@ class XLSXManager {
         }
     }
 
+    public async createNewSheet(sheetName: string, data: any) {
+        const workbook = XLSX.readFile(this.filePath);
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        XLSX.writeFile(workbook, this.filePath);
+    }
+
     public async appendDataToXLSX(newData: any) {
+        // the appendDataToXLSX() method to append the new data to the Excel sheet.
         try {
             // Read the existing workbook
             const buffer = fs.readFileSync(this.filePath);
             let workbook = XLSX.read(buffer, { type: 'buffer' });
-            const sheetName = workbook.SheetNames[2];
+            const sheetName = workbook.SheetNames[1];
             // const sheetName = (parseInt(sheetName1) + 1).toString();
-
             let worksheet = workbook.Sheets[sheetName];
-
             // Convert worksheet to JSON
             let data = XLSX.utils.sheet_to_json(worksheet);
 
@@ -112,7 +110,7 @@ class XLSXManager {
             // Write workbook to file
             XLSX.writeFile(workbook, this.filePath);
 
-            console.log("Data appended successfully");
+            console.log("Data added to next sheet successfully");
         } catch (error) {
             console.error("Error appending data: ", error);
         }
@@ -132,16 +130,8 @@ const sendTranslationRequest = async (text: string) => {
         const chunk = text.substring(0, 10);
 
 
-        console.log("Processing " + chunk + "...")
 
-
-        const chat = await openai.createChatCompletion({
-            model: "gpt-3.5-turbo",
-            messages: [
-                { role: "assistant", content: "Translate the following English text to French" },
-                { role: "user", content: chunk }],
-
-        }).catch((error) => {
+        const chat = await openai.createChatCompletion(modelSettings(chunk)).catch((error) => {
             console.error("Error sending translation request: ", `message: ${error.response.statusText} and status code: ${error.response.status} and data: ${JSON.stringify(error.response.data)}`);
             throw error;
         });
@@ -156,17 +146,6 @@ const sendTranslationRequest = async (text: string) => {
     }
 };
 
-
-const calculateTokens = (text: string) => {
-    try {
-        return encode(text).length;
-    } catch (error) {
-        console.error("Error calculating tokens: ", error);
-        throw error;
-    } finally {
-        console.log('Token calculation operation completed.');
-    }
-};
 
 // Define AsyncFunction type for asyncFn parameter
 type AsyncFunction<T> = (item: T) => Promise<void>;
@@ -220,7 +199,7 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
 
 const handleTasks = async () => {
     try {
-        const xlsxManager = new XLSXManager('./testing.xlsx');
+        const xlsxManager = new XLSXManager(xlsFilePath);
         let data = await xlsxManager.readData();
 
         const keys = Object.keys(data[0]);
@@ -229,9 +208,10 @@ const handleTasks = async () => {
         if (!secondColumnExists) {
             data = data.map((row: any) => ({ ...row, target_language: null }));
         }
-
+        // Get the batch size from the batchSize() function : number of rows to process in one minute
+        const batch = await batchSize();
         // Split the data into batches of 60 using the processInBatches() function
-        await processBatches(data, 100, async (row: any) => {
+        await processBatches(data, batch, async (row: any) => {
 
             retryWithExponentialBackoff(sendTranslationRequest)(row.source_language)
                 .then((translation: any) => {
