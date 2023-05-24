@@ -1,4 +1,3 @@
-import { OpenAIApi } from 'openai';
 
 type AsyncFunction = (...args: any[]) => Promise<any>;
 

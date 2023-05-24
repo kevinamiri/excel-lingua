@@ -78,8 +78,8 @@ export class XLSXManager {
             // Read the existing workbook
             const buffer = fs.readFileSync(this.filePath);
             let workbook = XLSX.read(buffer, { type: 'buffer' });
-            const sheetName = workbook.SheetNames[1];
-            // const sheetName = (parseInt(sheetName1) + 1).toString();
+            console.log(workbook.SheetNames)
+            const sheetName = workbook.SheetNames[0];
             let worksheet = workbook.Sheets[sheetName];
             // Convert worksheet to JSON
             let data = XLSX.utils.sheet_to_json(worksheet);
@@ -90,15 +90,8 @@ export class XLSXManager {
             // Convert JSON to worksheet
             let newWorksheet = XLSX.utils.json_to_sheet(data);
 
-            // Remove old worksheet
-            delete workbook.Sheets[sheetName];
-            const sheetIndex = workbook.SheetNames.indexOf(sheetName);
-            if (sheetIndex > -1) {
-                workbook.SheetNames.splice(sheetIndex, 1);
-            }
-
-            // Replace old worksheet with new worksheet
-            XLSX.utils.book_append_sheet(workbook, newWorksheet, sheetName);
+            // Replace the old worksheet with the new worksheet
+            workbook.Sheets[sheetName] = newWorksheet;
 
             // Write workbook to file
             XLSX.writeFile(workbook, this.filePath);
@@ -107,6 +100,7 @@ export class XLSXManager {
             console.error("Error appending data: ", error);
         }
     }
+
 
 }
 
