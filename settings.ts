@@ -2,7 +2,7 @@ import { ChatCompletionRequestMessage, CreateChatCompletionRequest } from "opena
 import { batchEstimate } from "./batch-size";
 
 // Path of the Excel sheet
-export const xlsFilePath = './test.xlsx';
+export const xlsFilePath = './input.xlsx';
 
 // Set default batch size: less than 200 to avoid rate limiting
 /**
@@ -32,10 +32,14 @@ export const promptExamples = [
     { role: "assistant", content: "Au revoir" },
 
 ];
+const useExamples = false;
+
+
+const example = useExamples ? promptExamples ? promptExamples : [] : [];
 
 export const messageExamples = (chunk: string) => [
     { role: "assistant", content: "Translate the following English text to French" },
-    ...promptExamples,
+    ...example,
     { role: "user", content: chunk }] as ChatCompletionRequestMessage[];
 
 /**
@@ -45,7 +49,7 @@ export const messageExamples = (chunk: string) => [
 
 export const modelSettings = (chunk: string): CreateChatCompletionRequest => ({
     model: 'gpt-3.5-turbo-0301',
-    temperature: 0.9,
-    max_tokens: 100,
+    temperature: 0.7,
+    max_tokens: 5,
     messages: messageExamples(chunk),
 });

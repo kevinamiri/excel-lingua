@@ -57,8 +57,6 @@ class ExcelReader {
         } catch (error) {
             console.error('Error reading the XLSX file:', error);
             throw error;
-        } finally {
-            console.log('Reading excel file completed.');
         }
     }
 }
@@ -72,14 +70,13 @@ export const batchEstimate = async () => {
         const source_language = data.map((row: any) => row.source_language);
         // size of tokens in source language
         const tokens = tokenSize(source_language)
-        console.log(`Total tokens of source_language: ${tokens}`)
+        console.log('\x1b[35m\x1b[3m%s\x1b[0m', 'Total tokens of source_language:', '\x1b[35m\x1b[1m', tokens);
+        // token bold and yellow
         const batch_size = Math.round(tokens / (200 * 2))
-        console.log(`estimated batch_size: ${batch_size}`)
+        console.log('\x1b[32m\x1b[4m%s\x1b[0m', `Total Batches: ${batch_size + 1}`)
         return batch_size
     } catch (error) {
         console.error("Error handling tasks: ", error);
         throw error;
-    } finally {
-        console.log('Task handling operation completed.');
     }
 };

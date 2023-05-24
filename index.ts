@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import { retryWithExponentialBackoff } from './backoff'
 import { Configuration, OpenAIApi } from 'openai';
 import dotenv from 'dotenv';
-import { batchSize, messageExamples, modelSettings, xlsFilePath } from './settings';
+import { batchSize, modelSettings, xlsFilePath } from './settings';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -34,8 +34,8 @@ export class XLSXManager {
             let jsonData = XLSX.utils.sheet_to_json(worksheet);
 
             // Check if the column labels are correct
-            const keys = Object.keys(jsonData[0]);
-            if (keys[0] !== 'source_language' || keys[1] !== 'target_language' || keys[2] !== 'total_tokens') {
+            const keys = Object.keys(jsonData?.[0]);
+            if (keys[0] && keys[0] !== 'source_language' && keys[1] !== 'target_language' && keys[2] !== 'total_tokens') {
                 // If not, set the column labels and write the data back to the Excel sheet
                 jsonData = jsonData.map((row, index) => {
                     return {
@@ -47,13 +47,13 @@ export class XLSXManager {
 
                 await this.writeData(jsonData);
             }
-
+            console.log('\x1b[32m\x1b[4m%s\x1b[0m', 'Reading excel file ...');
             return jsonData;
         } catch (error) {
             console.error('Error reading the XLSX file:', error);
             throw error;
         } finally {
-            console.log('Read operation completed.');
+            console.log('\x1b[40m\x1b[36m%s\x1b[0m', '✓ Reading Done.');
         }
     }
 
@@ -70,13 +70,6 @@ export class XLSXManager {
         } finally {
             console.log('Write operation completed.');
         }
-    }
-
-    public async createNewSheet(sheetName: string, data: any) {
-        const workbook = XLSX.readFile(this.filePath);
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-        XLSX.writeFile(workbook, this.filePath);
     }
 
     public async appendDataToXLSX(newData: any) {
@@ -109,8 +102,7 @@ export class XLSXManager {
 
             // Write workbook to file
             XLSX.writeFile(workbook, this.filePath);
-
-            console.log("Data added to next sheet successfully");
+            console.log('\x1b[32m%s\x1b[0m', 'Data added to next sheet successfully');
         } catch (error) {
             console.error("Error appending data: ", error);
         }
@@ -126,12 +118,7 @@ const sendTranslationRequest = async (text: string) => {
             return { content: text, total_tokens: 0 }
         }
 
-
-        const chunk = text.substring(0, 10);
-
-
-
-        const chat = await openai.createChatCompletion(modelSettings(chunk)).catch((error) => {
+        const chat = await openai.createChatCompletion(modelSettings(text)).catch((error) => {
             console.error("Error sending translation request: ", `message: ${error.response.statusText} and status code: ${error.response.status} and data: ${JSON.stringify(error.response.data)}`);
             throw error;
         });
@@ -142,7 +129,7 @@ const sendTranslationRequest = async (text: string) => {
         console.error("Error sending translation request: ", `message: ${error.response.statusText} and status code: ${error.response.status} and data: ${JSON.stringify(error.response.data)}`);
         throw error;
     } finally {
-        console.log('Translation request operation completed.');
+        console.log('\x1b[40m\x1b[36m%s\x1b[0m', '✓ Done ');
     }
 };
 
@@ -157,8 +144,7 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
 
         for (let i = 0; i < list.length; i += batchSizeMax) {
             const batch = list.slice(i, i + batchSizeMax);
-            console.log("Processing batch: ", i)
-            console.log("Batch length: ", batch.length)
+            console.log('\x1b[32m\x1b[4m%s\x1b[0m', `Processing ${i + 1}th ...`)
             batches.push(batch);
         }
 
@@ -166,19 +152,17 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
         for (let i = 0; i < batches.length; i++) {
             const batch = batches[i];
             const batchNumber = i + 1;
-            console.log("list.length: ", list.length, "batch length", batch.length)
-            console.log(`Processing batch of length ${batch.length}:`, batch[0], '-', batch[batch.length - 1]);
-            console.log(`Step ${batchNumber} :  ${batch.length * batchNumber} / ${list.length}  processed.`)
+            console.log('\x1b[35m\x1b[3m%s\x1b[0m', `Step ${batchNumber} :  ${batch.length * batchNumber} / ${list.length}  processed.`)
             // Run asyncFn for each item in the batch
             const promises = batch.map(item => asyncFn(item));
             // Wait for all promises in the batch to resolve
             await Promise.all(promises);
             // Wait for a minute before processing the next batch
+            console.log('\x1b[32m\x1b[4m%s\x1b[0m', 'Waiting for 1 minute before processing the next batch...');
             await new Promise(resolve => setTimeout(resolve, 60000));
-            console.log('Waiting for 1 minute before processing the next batch...');
             // when all batches are processed, log the final message
             if (i === batches.length - 1) {
-                console.log('All batches performed successfully.');
+                console.log('\x1b[40m\x1b[36m%s\x1b[0m', '✓ All batches performed successfully.');
             }
         }
 
@@ -186,8 +170,6 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
     } catch (error) {
         console.error("Error processing batches: ", error);
         throw error;
-    } finally {
-        console.log('Batch processing operation completed.');
     }
 }
 
@@ -226,8 +208,6 @@ const handleTasks = async () => {
     } catch (error) {
         console.error("Error handling tasks: ", error);
         throw error;
-    } finally {
-        console.log('Task handling operation completed.');
     }
 };
 
