@@ -3,6 +3,11 @@
 ---
 Step-by-step guide on how to install Node.js on a Windows system using Node Version Manager (NVM):
 
+0. **Download Node.js:**
+   First, you need to download the Node.js installation package. You can download it from the official Node.js website.
+
+  [Node.js](https://nodejs.org/en/download/) and install the nodejs for windows.
+
 1. **Download NVM for Windows:**
    First, you need to download the NVM installation package. You can download it from the official GitHub repository.
    
@@ -107,9 +112,9 @@ npx ts-node index.ts
 ## Step 3. Using the application
 
 1. open the `settings.ts` file.
-  
-  - change the `fileName` variable to the name of your excel file.
+  - change the `filePath` variable to the name of your excel file.
   - change the `systemPrompt` variable to your translation prompt or any other prompt you want to use.
-
-
-2. run the application using the command `npx ts-node index.ts`
+- `promptExamples` is an array of prompts that will be used to generate the translation. You can add as many prompts as you want to this array. The more prompts you add max 3 pair, the more accurate the translation will be (in most cases) also helps to have consistent translations. The default is disabled, you can enable it by turning `useExamples` to `true`.
+- `debug` is for debugging purposes.
+- `batchSize` is the number of request that will be generated per minute. The default is 200.
+- To run the application using the command `npx ts-node index.ts` or `ts-node index.ts` in your command prompt.

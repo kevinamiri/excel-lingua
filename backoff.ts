@@ -20,7 +20,7 @@ export function retryWithExponentialBackoff(
                 return await func(...args);
             } catch (e) {
                 // Retry on specific errors
-                if (e.response && e.response.status === 429 || e.response.status === 500) {
+                if (e && e === 429 || e === 500) {
                     // Increment retries
                     numRetries += 1;
                     // next retry in ${delay} seconds
@@ -30,14 +30,14 @@ export function retryWithExponentialBackoff(
                     if (numRetries > maxRetries) {
                         console.log(`Maximum number of retries (${maxRetries}) exceeded.`);
                     }
-
                     // Increment the delay
                     delay *= exponentialBase * (1 + (jitter ? Math.random() : 0));
 
                     // Sleep for the delay
                     await new Promise(resolve => setTimeout(resolve, delay * 1000));
                 } else {
-                    throw e
+                    console.error('\x1b[38;5;124m\x1b[40m%s\x1b[0m', `Error number: ${e}`);
+                    throw e;
                 }
             }
         }

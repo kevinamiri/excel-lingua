@@ -1,10 +1,7 @@
 import { ChatCompletionRequestMessage, CreateChatCompletionRequest } from "openai/dist/api";
-// import { batchEstimate } from "./batch-size";
 
-// Path of the Excel sheet
-export const xlsFilePath = 'inputs.xlsx';
-export const outputpath = 'inputs.xlsx';
-export const filePath = 'inputs.xlsx';
+export const filePath = 'data.xlsx';
+export const debug = false;
 
 /**
  * it will instruct model to perform a specific task. for example, 
@@ -15,7 +12,7 @@ export const systemPrompt = `Translate the following inputs into French:`;
 /**
  * The prompt examples are the inputs and outputs that will be used so the model can learn to translation stye.
  */
-export const promptExamples = [
+export let promptExamples = [
     { role: "user", content: "Hello" },
     { role: "assistant", content: "Bonjour" },
     { role: "user", content: "Goodbye" },
@@ -32,9 +29,7 @@ const useExamples = false;
  * Then divide the number of tokens used by 40k to get the batch size per minute.
  */
 
-export const batchSize = async () => {
-    return 200;
-}
+export const batchSize = 200;
 
 
 const example = useExamples ? promptExamples ? promptExamples : [] : [];
