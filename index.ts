@@ -7,6 +7,7 @@ import { batchSize, modelSettings, xlsFilePath } from './settings';
 
 
 import { outputpath } from './settings';
+import { xlsxHandler } from './utils';
 // Load environment variables from .env file
 dotenv.config();
 
@@ -21,65 +22,8 @@ interface ExcelRow {
     total_tokens: number;
 }
 
-export class XLSXManager {
-    private filePath: string;
 
-    constructor(filePath: string) {
-        this.filePath = filePath;
-    }
 
-    public async readData(): Promise<any> {
-        // Read the data from the Excel sheet.
-        try {
-            const buffer = fs.readFileSync(this.filePath);
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-
-            let jsonData = XLSX.utils.sheet_to_json(worksheet);
-            console.log('\x1b[40m\x1b[36m%s\x1b[0m', jsonData);
-
-            // Check if the column labels are correct
-            const keys = jsonData.length > 1 ? Object?.keys(jsonData?.[0]) : null;
-            if (keys && keys[0] && keys[0] !== 'source_language' && keys[1] !== 'target_language' && keys[2] !== 'total_tokens') {
-                // If not, set the column labels and write the data back to the Excel sheet
-                jsonData = jsonData.map((row, index) => {
-                    return {
-                        source_language: row[keys[0]],
-                        target_language: row[keys[1]],
-                        total_tokens: row[keys[2]]
-                    };
-                });
-                await this.writeData(jsonData);
-            }
-            console.log('\x1b[32m\x1b[4m%s\x1b[0m', 'Reading excel file ...');
-            return jsonData;
-        } catch (error) {
-            console.error('Error reading the XLSX file:', error);
-            throw error;
-        } finally {
-            console.log('\x1b[40m\x1b[36m%s\x1b[0m', '✓ Reading Done.');
-        }
-    }
-
-    public async writeData(data: any[]): Promise<void> {
-        try {
-            const worksheet = XLSX.utils.json_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
-
-            XLSX.utils.book_append_sheet(workbook, worksheet);
-            XLSX.writeFile(workbook, this.filePath);
-        } catch (error) {
-            console.error('Error writing to the XLSX file:', error);
-            throw error;
-        } finally {
-            console.log('Write operation completed.');
-        }
-    }
-}
-
-// Manually load fs helpers
 XLSX.set_fs(fs);
 
 // Stream read function
@@ -125,17 +69,21 @@ const sendTranslationRequest = async (text: string) => {
         }
 
         const chat = await openai.createChatCompletion(modelSettings(text)).catch((error) => {
-            console.error("Error sending translation request: ", `message: ${error.response.statusText} and status code: ${error.response.status} and data: ${JSON.stringify(error.response.data)}`);
-            throw error;
+            console.error(`${error.response.status} : ${error.response.statusText} Message: ${JSON.stringify(error.response.data.error.message)}`);
+            // if error.response.status is 429 or 500, retry
+            if (error.response.status === 429 || error.response.status === 500) {
+                // retry ...
+                console.log('\x1b[90m\x1b[40m%s\x1b[0m', `${error.response.status} :retrying soon...`)
+            }
+            throw error.response.status
         });
 
         return { content: chat.data.choices[0].message?.content, total_tokens: chat.data.usage.total_tokens }
 
     } catch (error) {
-        console.error("Error sending translation request: ", `message: ${error.response.statusText} and status code: ${error.response.status} and data: ${JSON.stringify(error.response.data)}`);
-        throw error;
-    } finally {
-        console.log('\x1b[40m\x1b[36m%s\x1b[0m', '✓ Done ');
+        console.log('\x1b[38;5;209m\x1b[40m%s\x1b[0m', error.response.statusText);
+
+
     }
 };
 
@@ -150,7 +98,7 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
 
         for (let i = 0; i < list.length; i += batchSizeMax) {
             const batch = list.slice(i, i + batchSizeMax);
-            console.log('\x1b[32m\x1b[4m%s\x1b[0m', `Processing ${i + 1}th ...`)
+            console.log('\x1b[90m\x1b[40m%s\x1b[0m', `Processing ${i + 1}th ...`)
             batches.push(batch);
         }
 
@@ -164,7 +112,7 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
             // Wait for all promises in the batch to resolve
             await Promise.all(promises);
             // Wait for a minute before processing the next batch
-            console.log('\x1b[32m\x1b[4m%s\x1b[0m', 'Waiting for 1 minute before processing the next batch...');
+            console.log('\x1b[90m\x1b[40m%s\x1b[0m', 'Waiting for 1 minute before processing the next batch...');
             await new Promise(resolve => setTimeout(resolve, 60000));
             // when all batches are processed, log the final message
             if (i === batches.length - 1) {
@@ -187,11 +135,11 @@ export async function processBatches<T>(list: T[], batchSizeMax: number = 200, a
 
 const handleTasks = async () => {
     try {
-        const xlsxManager = new XLSXManager(xlsFilePath);
-        let data = await xlsxManager.readData();
+        const xlsxManager = new xlsxHandler(xlsFilePath);
+        let data = await xlsxManager.validateData();
 
         // Get the keys (property names) of the first object in the 'data' array.
-        const keys = Object.keys(data[0]);
+        const keys = data.length > 1 ? Object.keys(data[0]) : [];
 
         // Check if there are at least two columns (keys) present in the first object.
         const secondColumnExists = keys.length >= 2;
@@ -208,8 +156,6 @@ const handleTasks = async () => {
                 .then((translation: any) => {
                     row.target_language = translation.content;
                     row.total_tokens = translation.total_tokens;
-                    // Update the row in the Excel file
-                    console.log('row', row)
                     return appendExcel([row.source_language, row.target_language, row.total_tokens]);
                 })
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -217,7 +163,6 @@ const handleTasks = async () => {
         });
     } catch (error) {
         console.error("Error handling tasks: ", error);
-        throw error;
     }
 };
 
