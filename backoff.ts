@@ -39,6 +39,7 @@ export function retryWithExponentialBackoff(
                     await new Promise(resolve => setTimeout(resolve, delay * 1000));
                 } else {
                     // Raise exceptions for any errors not specified
+                    console.log(e.response.data)
                     throw e.response.data;
                 }
             }
