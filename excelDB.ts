@@ -1,7 +1,7 @@
 // excelDB.ts
 import * as XLSX from 'xlsx';
 import AsyncLock from 'async-lock';
-
+import { v4 as uuidv4 } from 'uuid';
 
 function readExcelFile(filePath: string) {
     const workbook = XLSX.readFile(filePath);
@@ -48,11 +48,34 @@ async function writeData(id: number, newData: any) {
     await lock.acquire('key', () => {
         let data = readExcelFile('inputs.xlsx');
         data = updateRowByID(data, id, newData);
-        writeExcelFile('outputs.xlsx', data);
+        writeExcelFile('inputs.xlsx', data);
     });
 }
 
 
-export { readData, writeData, readExcelFile, writeExcelFile, findRowByID, updateRowByID };
+function evaluateSheet(filePath: string) {
+    let data = readExcelFile(filePath);
+    let idSet = new Set();
+
+    data = data.filter((row: any) => {
+        if (!row.id) {
+            row.id = uuidv4();
+            idSet.add(row.id);
+            return true;
+        }
+
+        if (idSet.has(row.id)) {
+            return false;
+        } else {
+            idSet.add(row.id);
+            return true;
+        }
+    });
+
+    writeExcelFile(filePath, data);
+}
+
+
+export { evaluateSheet, readData, writeData, readExcelFile, writeExcelFile, findRowByID, updateRowByID };
 
 
