@@ -18,20 +18,16 @@ export const tokenSize = (lists: string[]) => {
 }
 
 export const batchEstimate = async () => {
-    try {
-        const readExcelFile = new xlsxHandler(xlsFilePath);
-        let data = await readExcelFile.validateData();
-        // const firstColumn = data.map((row: any) => (Object.values(row)[0])); // first column
-        const source_language = data.map((row: any) => row.source_language);
-        // size of tokens in source language
-        const tokens = tokenSize(source_language)
-        console.log('\x1b[38;5;209m\x1b[40m%s\x1b[0m', 'Total tokens of source_language:', '\x1b[35m\x1b[1m', tokens);
-        // token bold and yellow
-        const batch_size = Math.round(tokens / (200 * 2))
-        console.log('\x1b[90m\x1b[40m%s\x1b[0m', `Total Batches: ${batch_size + 1}`)
-        return batch_size
-    } catch (error) {
-        console.error("Error handling tasks: ", error.response?.data?.message || error.message || error);
-
-    }
+    const readExcelFile = new xlsxHandler(xlsFilePath);
+    let data = await readExcelFile.validateData();
+    // const firstColumn = data.map((row: any) => (Object.values(row)[0])); // first column
+    const source_language = data.map((row: any) => row.source_language);
+    // size of tokens in source language
+    const tokens = tokenSize(source_language)
+    console.log('\x1b[38;5;209m\x1b[40m%s\x1b[0m', 'Total tokens of source_language:', '\x1b[35m\x1b[1m', tokens);
+    // token bold and yellow
+    const batch_size = Math.round(tokens / (200 * 2))
+    const allowedPerToken = tokens / 40000
+    console.log('\x1b[90m\x1b[40m%s\x1b[0m', `Total Batches: ${batch_size + 1}`)
+    return batch_size
 };

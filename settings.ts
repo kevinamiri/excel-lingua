@@ -1,9 +1,9 @@
 import { ChatCompletionRequestMessage, CreateChatCompletionRequest } from "openai/dist/api";
-import { batchEstimate } from "./batch-size";
+// import { batchEstimate } from "./batch-size";
 
 // Path of the Excel sheet
-export const xlsFilePath = './inputs.xlsx';
-export const outputpath = 'output.xlsx';
+export const xlsFilePath = 'inputs.xlsx';
+export const outputpath = 'inputs.xlsx';
 
 /**
  * it will instruct model to perform a specific task. for example, 
@@ -32,7 +32,7 @@ const useExamples = false;
  */
 
 export const batchSize = async () => {
-    return await batchEstimate() || 50;
+    return 200;
 }
 
 
