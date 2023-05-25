@@ -17,12 +17,12 @@ function writeExcelFile(filePath: string, data: any[]) {
     XLSX.writeFile(workbook, filePath);
 }
 
-function findRowByID(data: any[], id: number) {
+function findRowByID(data: any[], id: string) {
     return data.find(row => row.id === id);
 }
 
 
-function updateRowByID(data: any[], id: number, newData: any) {
+function updateRowByID(data: any[], id: string, newData: any) {
     let row = findRowByID(data, id);
     if (row) {
         Object.assign(row, newData);
@@ -36,7 +36,7 @@ function updateRowByID(data: any[], id: number, newData: any) {
 
 const lock = new AsyncLock();
 
-async function readData(id: number) {
+async function readData(id: string) {
     return await lock.acquire('key', () => {
         const data = readExcelFile('inputs.xlsx');
         const row = findRowByID(data, id);
@@ -44,7 +44,7 @@ async function readData(id: number) {
     });
 }
 
-async function writeData(id: number, newData: any) {
+async function writeData(id: string, newData: any) {
     await lock.acquire('key', () => {
         let data = readExcelFile('inputs.xlsx');
         data = updateRowByID(data, id, newData);
@@ -53,27 +53,58 @@ async function writeData(id: number, newData: any) {
 }
 
 
-function evaluateSheet(filePath: string) {
-    let data = readExcelFile(filePath);
-    let idSet = new Set();
+// function evaluateSheet(filePath: string) {
+//     let data = readExcelFile(filePath);
+//     const idSet = new Set();
+//     data = data.filter((row: any) => {
+//         if (!row.id) {
+//             row.id = uuidv4();
+//             return true;
+//         }
+//         if (idSet.has(row.id)) {
+//             return false;
+//         }
+//         idSet.add(row.id);
+//         return true;
+//     });
+//     // Ensure 'id' is the first key in each object
+//     data = data.map((row: any) => {
+//         const { id, ...rest } = row;
+//         return { id, ...rest };
+//     });
+//     writeExcelFile(filePath, data);
+// }
 
-    data = data.filter((row: any) => {
-        if (!row.id) {
-            row.id = uuidv4();
-            idSet.add(row.id);
-            return true;
-        }
-
-        if (idSet.has(row.id)) {
-            return false;
-        } else {
-            idSet.add(row.id);
-            return true;
+function evaluateSheet(filePath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        try {
+            let data = readExcelFile(filePath);
+            const idSet = new Set();
+            data = data.filter((row: any) => {
+                if (!row.id) {
+                    row.id = uuidv4();
+                    return true;
+                }
+                if (idSet.has(row.id)) {
+                    return false;
+                }
+                idSet.add(row.id);
+                return true;
+            });
+            // Ensure 'id' is the first key in each object
+            data = data.map((row: any) => {
+                const { id, ...rest } = row;
+                return { id, ...rest };
+            });
+            writeExcelFile(filePath, data);
+            resolve();
+        } catch (error) {
+            reject(error);
         }
     });
-
-    writeExcelFile(filePath, data);
 }
+
+
 
 
 export { evaluateSheet, readData, writeData, readExcelFile, writeExcelFile, findRowByID, updateRowByID };
