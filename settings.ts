@@ -2,15 +2,13 @@ import { ChatCompletionRequestMessage, CreateChatCompletionRequest } from "opena
 import { batchEstimate } from "./batch-size";
 
 // Path of the Excel sheet
-export const xlsFilePath = './input.xlsx';
-
+export const xlsFilePath = './inputs.xlsx';
 
 /**
  * it will instruct model to perform a specific task. for example, 
  * for translating a text we will use 'translate the following into ...'
  */
 export const systemPrompt = `Translate the following inputs into French:`;
-
 
 /**
  * The prompt examples are the inputs and outputs that will be used so the model can learn to translation stye.

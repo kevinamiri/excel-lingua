@@ -12,7 +12,7 @@
     "dotenv": "^16.0.3",
     "gpt-tokenizer": "^1.0.5",
     "openai": "^3.2.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.19.3/xlsx-0.19.3.tgz"
   },
   "devDependencies": {
     "ts-node": "^10.9.1",

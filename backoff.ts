@@ -19,6 +19,7 @@ export function retryWithExponentialBackoff(
             try {
                 return await func(...args);
             } catch (e) {
+                console.log(e)
                 // Retry on specific errors
                 if (e.response && e.response.status === 429 || e.response.status === 500) {
                     // Increment retries
@@ -28,7 +29,7 @@ export function retryWithExponentialBackoff(
 
                     // Check if max retries has been reached
                     if (numRetries > maxRetries) {
-                        throw new Error(`Maximum number of retries (${maxRetries}) exceeded.`);
+                        console.log(`Maximum number of retries (${maxRetries}) exceeded.`);
                     }
 
                     // Increment the delay

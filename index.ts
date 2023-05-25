@@ -5,6 +5,8 @@ import { Configuration, OpenAIApi } from 'openai';
 import dotenv from 'dotenv';
 import { batchSize, modelSettings, xlsFilePath } from './settings';
 
+
+const outputpath = 'output.xlsx';
 // Load environment variables from .env file
 dotenv.config();
 
@@ -13,7 +15,11 @@ const configuration = new Configuration({
 });
 
 const openai = new OpenAIApi(configuration);
-
+interface ExcelRow {
+    source_language: string;
+    target_language: string;
+    total_tokens: number;
+}
 
 export class XLSXManager {
     private filePath: string;
@@ -32,10 +38,11 @@ export class XLSXManager {
             const worksheet = workbook.Sheets[sheetName];
 
             let jsonData = XLSX.utils.sheet_to_json(worksheet);
+            console.log('\x1b[40m\x1b[36m%s\x1b[0m', jsonData);
 
             // Check if the column labels are correct
-            const keys = Object.keys(jsonData?.[0]);
-            if (keys[0] && keys[0] !== 'source_language' && keys[1] !== 'target_language' && keys[2] !== 'total_tokens') {
+            const keys = jsonData.length > 1 ? Object?.keys(jsonData?.[0]) : null;
+            if (keys && keys[0] && keys[0] !== 'source_language' && keys[1] !== 'target_language' && keys[2] !== 'total_tokens') {
                 // If not, set the column labels and write the data back to the Excel sheet
                 jsonData = jsonData.map((row, index) => {
                     return {
@@ -44,7 +51,6 @@ export class XLSXManager {
                         total_tokens: row[keys[2]]
                     };
                 });
-
                 await this.writeData(jsonData);
             }
             console.log('\x1b[32m\x1b[4m%s\x1b[0m', 'Reading excel file ...');
@@ -71,36 +77,42 @@ export class XLSXManager {
             console.log('Write operation completed.');
         }
     }
+}
 
-    public async appendDataToXLSX(newData: any) {
-        // the appendDataToXLSX() method to append the new data to the Excel sheet.
-        try {
-            // Read the existing workbook
-            const buffer = fs.readFileSync(this.filePath);
-            let workbook = XLSX.read(buffer, { type: 'buffer' });
-            console.log(workbook.SheetNames)
-            const sheetName = workbook.SheetNames[0];
-            let worksheet = workbook.Sheets[sheetName];
-            // Convert worksheet to JSON
-            let data = XLSX.utils.sheet_to_json(worksheet);
+// Manually load fs helpers
+XLSX.set_fs(fs);
 
-            // Append new data
-            data.push(newData);
+// Stream read function
+function read(filename: string) {
+    const stream = fs.createReadStream(filename);
+    const buffers: any[] = [];
+    return new Promise<XLSX.WorkBook>((resolve, reject) => {
+        stream.on('data', (data) => buffers.push(data));
+        stream.on('end', () => {
+            const buffer = Buffer.concat(buffers);
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
+            resolve(workbook);
+        });
+        stream.on('error', reject);
+    });
+}
 
-            // Convert JSON to worksheet
-            let newWorksheet = XLSX.utils.json_to_sheet(data);
+// Stream write function
+function write(workbook: XLSX.WorkBook, filename: string) {
+    const stream = fs.createWriteStream(filename);
+    const buffer = XLSX.write(workbook, { type: 'buffer' });
+    stream.write(buffer);
+    stream.end();
+}
 
-            // Replace the old worksheet with the new worksheet
-            workbook.Sheets[sheetName] = newWorksheet;
-
-            // Write workbook to file
-            XLSX.writeFile(workbook, this.filePath);
-            console.log('\x1b[32m%s\x1b[0m', 'Data added to next sheet successfully');
-        } catch (error) {
-            console.error("Error appending data: ", error);
-        }
-    }
-
+const appendExcel = async (row: any[]) => {
+    return read(outputpath)
+        .then((workbook) => {
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            XLSX.utils.sheet_add_aoa(worksheet, [row], { origin: -1 });
+            write(workbook, outputpath);
+        })
+        .catch(console.error);
 
 }
 
@@ -178,7 +190,10 @@ const handleTasks = async () => {
         const xlsxManager = new XLSXManager(xlsFilePath);
         let data = await xlsxManager.readData();
 
+        // Get the keys (property names) of the first object in the 'data' array.
         const keys = Object.keys(data[0]);
+
+        // Check if there are at least two columns (keys) present in the first object.
         const secondColumnExists = keys.length >= 2;
 
         if (!secondColumnExists) {
@@ -194,7 +209,8 @@ const handleTasks = async () => {
                     row.target_language = translation.content;
                     row.total_tokens = translation.total_tokens;
                     // Update the row in the Excel file
-                    return xlsxManager.appendDataToXLSX(row);
+                    console.log('row', row)
+                    return appendExcel([row.source_language, row.target_language, row.total_tokens]);
                 })
             await new Promise(resolve => setTimeout(resolve, 1000));
 

@@ -24,8 +24,19 @@ class ExcelReader {
         this.filePath = filePath;
     }
 
-    async writeData(data: any) {
-        // Implement your method to write data back to the Excel file.
+    public async writeData(data: any[]): Promise<void> {
+        try {
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(workbook, worksheet);
+            XLSX.writeFile(workbook, this.filePath);
+        } catch (error) {
+            console.error('Error writing to the XLSX file:', error);
+            throw error;
+        } finally {
+            console.log('Write operation completed.');
+        }
     }
 
     async readExcelFile(): Promise<any> {
