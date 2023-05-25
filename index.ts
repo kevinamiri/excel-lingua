@@ -49,16 +49,16 @@ function write(workbook: XLSX.WorkBook, filename: string) {
     stream.end();
 }
 
-// const appendExcel = async (row: any[]) => {
-//     return read(outputpath)
-//         .then((workbook) => {
-//             const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-//             XLSX.utils.sheet_add_aoa(worksheet, [row], { origin: -1 });
-//             write(workbook, outputpath);
-//         })
-//         .catch(console.error);
+const appendExcel = async (row: any[]) => {
+    return read(outputpath)
+        .then((workbook) => {
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            XLSX.utils.sheet_add_aoa(worksheet, [row], { origin: -1 });
+            write(workbook, outputpath);
+        })
+        .catch(console.error);
 
-// }
+}
 
 const sendTranslationRequest = async (text: string) => {
     try {

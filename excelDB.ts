@@ -2,6 +2,7 @@
 import * as XLSX from 'xlsx';
 import AsyncLock from 'async-lock';
 import { v4 as uuidv4 } from 'uuid';
+import { filePath } from './settings';
 
 function readExcelFile(filePath: string) {
     const workbook = XLSX.readFile(filePath);
@@ -38,7 +39,7 @@ const lock = new AsyncLock();
 
 async function readData(id: string) {
     return await lock.acquire('key', () => {
-        const data = readExcelFile('inputs.xlsx');
+        const data = readExcelFile(filePath);
         const row = findRowByID(data, id);
         return row ? row : 'No data found for the given ID';
     });
@@ -46,34 +47,11 @@ async function readData(id: string) {
 
 async function writeData(id: string, newData: any) {
     await lock.acquire('key', () => {
-        let data = readExcelFile('inputs.xlsx');
+        let data = readExcelFile(filePath);
         data = updateRowByID(data, id, newData);
-        writeExcelFile('inputs.xlsx', data);
+        writeExcelFile(filePath, data);
     });
 }
-
-
-// function evaluateSheet(filePath: string) {
-//     let data = readExcelFile(filePath);
-//     const idSet = new Set();
-//     data = data.filter((row: any) => {
-//         if (!row.id) {
-//             row.id = uuidv4();
-//             return true;
-//         }
-//         if (idSet.has(row.id)) {
-//             return false;
-//         }
-//         idSet.add(row.id);
-//         return true;
-//     });
-//     // Ensure 'id' is the first key in each object
-//     data = data.map((row: any) => {
-//         const { id, ...rest } = row;
-//         return { id, ...rest };
-//     });
-//     writeExcelFile(filePath, data);
-// }
 
 function evaluateSheet(filePath: string): Promise<void> {
     return new Promise((resolve, reject) => {

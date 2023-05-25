@@ -4,6 +4,7 @@ import { ChatCompletionRequestMessage, CreateChatCompletionRequest } from "opena
 // Path of the Excel sheet
 export const xlsFilePath = 'inputs.xlsx';
 export const outputpath = 'inputs.xlsx';
+export const filePath = 'inputs.xlsx';
 
 /**
  * it will instruct model to perform a specific task. for example, 
