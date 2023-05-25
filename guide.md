@@ -117,4 +117,7 @@ npx ts-node index.ts
 - `promptExamples` is an array of prompts that will be used to generate the translation. You can add as many prompts as you want to this array. The more prompts you add max 3 pair, the more accurate the translation will be (in most cases) also helps to have consistent translations. The default is disabled, you can enable it by turning `useExamples` to `true`.
 - `debug` is for debugging purposes.
 - `batchSize` is the number of request that will be generated per minute. The default is 200.
+- `modelSettings` is the settings for the model. The default is `gpt-3.5-turbo-0301` You can change it to  `gpt-3.5-turbo-0301, gpt-3.5-turbo, gpt-4, gpt-4-32k-0314, gpt-4-32k, gpt-4-0314` along with other settings for GPT models.
+- Download sheet document as xlsx and make sure that the column of source language is has `source_language` as label. (The first row of the column should be `source_language`). It will generate three other columns like id, target_language, and tokens after running the application.
+
 - To run the application using the command `npx ts-node index.ts` or `ts-node index.ts` in your command prompt.
