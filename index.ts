@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { batchSize, modelSettings, xlsFilePath } from './settings';
 
 
-const outputpath = 'output.xlsx';
+import { outputpath } from './settings';
 // Load environment variables from .env file
 dotenv.config();
 

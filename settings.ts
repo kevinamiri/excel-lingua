@@ -3,6 +3,7 @@ import { batchEstimate } from "./batch-size";
 
 // Path of the Excel sheet
 export const xlsFilePath = './inputs.xlsx';
+export const outputpath = 'output.xlsx';
 
 /**
  * it will instruct model to perform a specific task. for example, 
